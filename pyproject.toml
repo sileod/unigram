@@ -10,6 +10,7 @@ readme = "README.md"
 python = "^3.7"
 anytree = "^2"
 networkx = "*"
+funcy = "*"
 
 [build-system]
 requires = ["poetry-core"]
