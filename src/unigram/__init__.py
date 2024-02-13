@@ -1,4 +1,4 @@
-import os,re, random
+import os, sys, re, random
 import pandas as pd
 from dataclasses import dataclass
 import copy
@@ -251,7 +251,7 @@ class Rule(NodeMixin):
         return fillings
         
     @classmethod
-    def generate(self,start=None,depth=2,breadth=0,pandas=True,
+    def generate(self,start=None,depth=2,breadth=sys.maxsize,pandas=True,
             constraint=[],state_constraint=[],verbose=False,
             rules_filter=lambda x:True):
         Rule.rules_filter=rules_filter
