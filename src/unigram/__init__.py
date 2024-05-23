@@ -1,5 +1,4 @@
-import os,re, random
-import math, types, time
+import os, sys, re, random
 import pandas as pd
 from dataclasses import dataclass
 import itertools
@@ -229,7 +228,6 @@ def generate(start,k=8,depth=14, skip_check=False,max_steps=1200,max_concentrati
             continue
         weights = [r.weight for r in rules]
         rules = safe_choices(rules,k=k, weights=weights)
-
         if len(rules)>1 and random.random()<(1/8):
             save(production,stack,step)
         for rule in rules:
