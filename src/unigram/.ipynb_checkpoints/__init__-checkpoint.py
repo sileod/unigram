@@ -14,6 +14,7 @@ import copy
 from collections import defaultdict
 import random
 import numpy as np
+from easydict import EasyDict as edict
 
 class FlatList(list):
     def __iadd__(self, other):
@@ -30,6 +31,7 @@ class FlatList(list):
         else:
             result.append(other)
         return result
+
 
 def Constraint(constraint_str):
     def generated_function(x):
@@ -180,7 +182,10 @@ class Production(NodeMixin):
                 template = template.format
         return template(*args)
     __matmul__ = render
-    
+
+
+    def dict(self):
+        return edict({l:self@l for l in self.rule.langs}|dict(cls=self))
 
     def __repr__(self):
         return f"PROD:{self.type}"+ (str(self.rule.args) if self.rule else '')
