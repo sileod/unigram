@@ -3,17 +3,10 @@ import random
 from xpflow import FlatList
 from unigram.solver_utils.tptp import split_clauses, run, to_tptp, extract_inferences_and_formulas
 import subprocess, copy
-from pandarallel import pandarallel
-import tfidf_matcher as tm
 import itertools, re, random
-from functools import lru_cache
 import funcy as fc
 from itertools import combinations
-import pandit
 from collections import defaultdict
-from xpflow import parallel_apply
-from tqdm.auto import tqdm
-tqdm.pandas()
 import numpy as np
 import pandas as pd
 import anytree
