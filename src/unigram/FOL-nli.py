@@ -24,7 +24,7 @@ def pluralize(s):
     return s
 
 
-def polsyllogism(x):
+def polysyllogism(x):
     # P1-P1 P2-P2 P3-P3 P4|P4
     if x.parent is not x.parent.parent.children[0]: # lhs
         return # must be lhs
@@ -257,7 +257,7 @@ R('property(property,property)', '~((0)|(1))', 'neither 0 nor 1',**kw)
 R('property(property,property,property)', '((0)&(1)&(2))', '0, 1 and 2',**kw)
 R('property(property,property,property)', '((0)|(1)|(2))', '0, 1 or 2',**kw)
 
-R('property(state)',*render_coref(polsyllogism,debug=""),
+R('property(state)',*render_coref(polysyllogism,debug=""),
   state_constraint=lambda x:bool(x@tptp), weight=14)
 
 R('cproperty(property,property)', '((0)=>(1))', 'who 0 1',weight=4)
