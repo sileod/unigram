@@ -1,0 +1,43 @@
+fof(b0,axiom,(![X,Y]:(X!=Y=>(like(X,Y)=>~hate(X,Y))))).
+fof(b1,axiom,(![X,Y]:(X!=Y=>(hate(X,Y)=>~like(X,Y))))).
+fof(b2,axiom,(![X]:(european(X)=>person(X)))).
+fof(b3,axiom,(![X]:(tourist(X)=>person(X)))).
+fof(b4,axiom,(![X]:(anywhere(X)))).
+fof(b5,axiom,(![X,Y]:(X!=Y=>(sibling(X,Y)<=>sibling(Y,X))))).
+fof(b6,axiom,(![X,Y,Z]:((X!=Y & Y!=Z & X!=Z)=>((richer(X,Y)&richer(Y,Z))=>richer(X,Z))))).
+fof(b7,axiom,(![X,Y]:(X!=Y=>((richer(X,Y)=>~richer(Y,X)))))).
+fof(b8,axiom,(![X,Y]:(X!=Y=>((richer(X,Y)&rich(X))=>rich(Y))))).
+fof(b9,axiom,(![X,Y]:(X!=Y=>((~rich(X)&rich(Y))=>richer(X,Y))))).
+fof(b10,axiom,(![X,Y]:(X!=Y=>((richer(X,Y)=>poorer(Y,X)))))).
+fof(b11,axiom,(![X]: (rich(X)=>~poor(X)))).
+fof(b12,axiom,(![X,Y,Z]:((X!=Y & Y!=Z & X!=Z)=>((quieter(X,Y)&quieter(Y,Z))=>quieter(X,Z))))).
+fof(b13,axiom,(![X,Y]:(X!=Y=>((quieter(X,Y)=>~quieter(Y,X)))))).
+fof(b14,axiom,(![X,Y]:(X!=Y=>((quieter(X,Y)&quiet(X))=>quiet(Y))))).
+fof(b15,axiom,(![X,Y]:(X!=Y=>((~quiet(X)&quiet(Y))=>quieter(X,Y))))).
+fof(b16,axiom,(![X,Y]:(X!=Y=>((quieter(X,Y)=>louder(Y,X)))))).
+fof(b17,axiom,(![X]: (quiet(X)=>~loud(X)))).
+fof(b18,axiom,(![X,Y,Z]:((X!=Y & Y!=Z & X!=Z)=>((older(X,Y)&older(Y,Z))=>older(X,Z))))).
+fof(b19,axiom,(![X,Y]:(X!=Y=>((older(X,Y)=>~older(Y,X)))))).
+fof(b20,axiom,(![X,Y]:(X!=Y=>((older(X,Y)&old(X))=>old(Y))))).
+fof(b21,axiom,(![X,Y]:(X!=Y=>((~old(X)&old(Y))=>older(X,Y))))).
+fof(b22,axiom,(![X,Y]:(X!=Y=>((older(X,Y)=>younger(Y,X)))))).
+fof(b23,axiom,(![X]: (old(X)=>~young(X)))).
+fof(b24,axiom,(![X,Y,Z]:((X!=Y & Y!=Z & X!=Z)=>((poorer(X,Y)&poorer(Y,Z))=>poorer(X,Z))))).
+fof(b25,axiom,(![X,Y]:(X!=Y=>((poorer(X,Y)=>~poorer(Y,X)))))).
+fof(b26,axiom,(![X,Y]:(X!=Y=>((poorer(X,Y)&poor(X))=>poor(Y))))).
+fof(b27,axiom,(![X,Y]:(X!=Y=>((~poor(X)&poor(Y))=>poorer(X,Y))))).
+fof(b28,axiom,(![X,Y]:(X!=Y=>((poorer(X,Y)=>richer(Y,X)))))).
+fof(b29,axiom,(![X]: (poor(X)=>~rich(X)))).
+fof(b30,axiom,(![X,Y,Z]:((X!=Y & Y!=Z & X!=Z)=>((louder(X,Y)&louder(Y,Z))=>louder(X,Z))))).
+fof(b31,axiom,(![X,Y]:(X!=Y=>((louder(X,Y)=>~louder(Y,X)))))).
+fof(b32,axiom,(![X,Y]:(X!=Y=>((louder(X,Y)&loud(X))=>loud(Y))))).
+fof(b33,axiom,(![X,Y]:(X!=Y=>((~loud(X)&loud(Y))=>louder(X,Y))))).
+fof(b34,axiom,(![X,Y]:(X!=Y=>((louder(X,Y)=>quieter(Y,X)))))).
+fof(b35,axiom,(![X]: (loud(X)=>~quiet(X)))).
+fof(b36,axiom,(![X,Y,Z]:((X!=Y & Y!=Z & X!=Z)=>((younger(X,Y)&younger(Y,Z))=>younger(X,Z))))).
+fof(b37,axiom,(![X,Y]:(X!=Y=>((younger(X,Y)=>~younger(Y,X)))))).
+fof(b38,axiom,(![X,Y]:(X!=Y=>((younger(X,Y)&young(X))=>young(Y))))).
+fof(b39,axiom,(![X,Y]:(X!=Y=>((~young(X)&young(Y))=>younger(X,Y))))).
+fof(b40,axiom,(![X,Y]:(X!=Y=>((younger(X,Y)=>older(Y,X)))))).
+fof(b41,axiom,(![X]: (young(X)=>~old(X)))).
+fof(b42,axiom,((mary!=paul)&(mary!=fred)&(mary!=alice)&(mary!=john)&(mary!=susan)&(mary!=lucy)&(paul!=mary)&(paul!=fred)&(paul!=alice)&(paul!=john)&(paul!=susan)&(paul!=lucy)&(fred!=mary)&(fred!=paul)&(fred!=alice)&(fred!=john)&(fred!=susan)&(fred!=lucy)&(alice!=mary)&(alice!=paul)&(alice!=fred)&(alice!=john)&(alice!=susan)&(alice!=lucy)&(john!=mary)&(john!=paul)&(john!=fred)&(john!=alice)&(john!=susan)&(john!=lucy)&(susan!=mary)&(susan!=paul)&(susan!=fred)&(susan!=alice)&(susan!=john)&(susan!=lucy)&(lucy!=mary)&(lucy!=paul)&(lucy!=fred)&(lucy!=alice)&(lucy!=john)&(lucy!=susan))).
