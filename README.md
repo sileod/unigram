@@ -1,7 +1,8 @@
 # unigram
 
-Unigram is a library for geneartion with context-sensitive grammars.
+Unigram is a library for generation with context-sensitive grammars.
 
+Example with LogicNLI grammar:
 ```python
 from unigram import Rule as R, generate
 
