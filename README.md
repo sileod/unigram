@@ -42,6 +42,8 @@ R('rule(fact,fact)', '(0)<=>(1)', 'if 0 then 1 and vice versa')
 eng, tptp = "eng","tptp"
 
 x=generate(R.start())[0]
+print(x@eng)
+print(x@tptp)
 ```
 
 
