@@ -1,10 +1,10 @@
 # unigram
-
 Unigram is a library for generation with context-sensitive grammars.
 
 Example with LogicNLI grammar:
+`pip install unigram`
 ```python
-from unigram import Rule as R, generate
+from unigram import Rule as R, generate_one
 
 ADJECTIVES = ['rich', 'quiet', 'old', 'tall', 'kind', 'brave', 'wise',
               'happy', 'strong', 'curious', 'patient', 'funny', 'generous', 'humble']
@@ -42,7 +42,7 @@ R('rule(fact,fact)', '(0)<=>(1)', 'if 0 then 1 and vice versa')
 
 eng, tptp = "eng","tptp"
 
-x=generate(R.start())[0]
+x=generate_one(R.start())
 print(x@eng)
 print(x@tptp)
 ```
