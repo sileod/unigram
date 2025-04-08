@@ -53,7 +53,7 @@ def run(expr,solver='vampire',proof=False,cache=None,verbose=True):
         exec = f"/mnt/nfs_share_magnet2/dsileo/extlibs/z3/build/z3_tptp {proof} -t:20 -file"
         cmd=f"{exec}:{path}"
     result = subprocess.run(cmd,
-        shell=False, text=True, capture_output=True)
+        shell=True, text=True, capture_output=True)
     output, error = result.stdout, result.stderr
     os.remove(path)
     if not verbose:
@@ -61,21 +61,51 @@ def run(expr,solver='vampire',proof=False,cache=None,verbose=True):
     return ProofOutput(output, input=expr)
 
 
-def run(expr, solver='vampire', proof=False, verbose=True):
-    if not expr.strip().endswith(').') and not expr.strip().startswith('fof'):
+def new_run(expr, solver='vampire', proof=False, cache=None, verbose=True):
+    if not expr.strip().endswith(').'):
         expr = f"fof(expr,axiom,{expr})."
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".p", dir="/mnt/tmpfs") as tmpfile:
+        tmpfile.write(expr)
+        tmpfile_path = tmpfile.name
+
+    solvers = {
+        'vampire': ["/mnt/nfs_share_magnet2/dsileo/extlibs/solver/vampire",
+        tmpfile_path, "--output_axiom_names", "on", "-t", "20s"],
+        'z3': ["/mnt/nfs_share_magnet2/dsileo/extlibs/z3/build/z3_tptp"] + 
+        (["-proof"] if proof else []) + ["-t:20", "-file:" + tmpfile_path]
+    }
+
+    cmd = solvers.get(solver)
+    if not cmd:
+        raise ValueError(f"Unknown solver: {solver}")
+
+    result = subprocess.run(cmd, text=True, capture_output=True)
+    os.remove(tmpfile_path)
+
+    output = result.stdout if verbose else result.stdout.split(' SZS status ', 1)[-1].split(' for ')[0]
+    return ProofOutput(output, input=expr)
+
+
+def run(expr, solver='vampire', proof=False, verbose=True):
+    if not expr.strip().endswith(').'):
+        expr = f"fof(expr,axiom,{expr})."
+
+    solvers = {
+        'vampire': ["/mnt/nfs_share_magnet2/dsileo/extlibs/solver/vampire", "--mode", "vampire", "--output_axiom_names", "on", "-t", "20s"],
+        'z3': ["/mnt/nfs_share_magnet2/dsileo/extlibs/z3/build/z3_tptp"] + (["-proof"] if proof else []) + ["-t:20"]
+    }
+
+    cmd = solvers.get(solver)
+    if not cmd:
+        raise ValueError(f"Unknown solver: {solver}")
+
+    expr_data = io.StringIO(expr)
+    result = subprocess.run(cmd, text=True, stdin=expr_data, capture_output=True)
     
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, dir="/dev/shm/") as f:
-        f.write(expr)
-        path = f.name
-    
-    try:
-        cmd = ["/mnt/nfs_share_magnet2/dsileo/extlibs/solver/vampire", path, "--output_axiom_names", "on", "-t", "20s"]
-        result = subprocess.run(cmd, text=True, capture_output=True)
-        output = result.stdout if verbose else result.stdout.split(' SZS status ', 1)[-1].split(' for ')[0]
-        return ProofOutput(output, input=expr)
-    finally:
-        os.remove(path)
+    output = result.stdout if verbose else result.stdout.split(' SZS status ', 1)[-1].split(' for ')[0]
+    return ProofOutput(output, input=expr)
+
 
 
 def split_clauses(x,prefix='axiom',name_prefix='',do_split=True):
