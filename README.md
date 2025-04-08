@@ -52,14 +52,11 @@ print(x@eng)
 print(x@tptp)
 ```
 
-
+Citation:
 ```
 @inproceedings{sileo-2024-scaling,
     title = "Scaling Synthetic Logical Reasoning Datasets with Context-Sensitive Declarative Grammars",
     author = "Sileo, Damien",
-    editor = "Al-Onaizan, Yaser  and
-      Bansal, Mohit  and
-      Chen, Yun-Nung",
     booktitle = "Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing",
     month = nov,
     year = "2024",
