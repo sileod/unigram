@@ -2,47 +2,50 @@
 Unigram is a library for generation with context-sensitive grammars.
 
 Example with LogicNLI grammar:
+
 `pip install unigram`
+
 ```python
-from unigram import Rule as R, generate_one
+from unigram import init_grammar, generate
+def LogicNLI():
+    ADJECTIVES = ['rich', 'quiet', 'old', 'tall', 'kind', 'brave', 'wise',
+                  'happy', 'strong', 'curious', 'patient', 'funny', 'generous', 'humble']
+    # (We selected adjectives with no clear semantic interference)
+    NAMES = ['mary', 'paul', 'fred', 'alice', 'john', 'susan', 'lucy']
 
-ADJECTIVES = ['rich', 'quiet', 'old', 'tall', 'kind', 'brave', 'wise',
-              'happy', 'strong', 'curious', 'patient', 'funny', 'generous', 'humble']
-# (We selected adjectives with no clear semantic interference)
-NAMES = ['mary', 'paul', 'fred', 'alice', 'john', 'susan', 'lucy']
+    R = init_grammar(['tptp','eng'])
+    R('start(' + ','.join(['rule']*16) + ',' + ','.join(['fact']*8) + ')',
+      '&\n'.join([f'({i})' for i in range(24)]),
+      '\n'.join([f'{i}' for i in range(24)]))
 
-R.init(['tptp', 'eng'], "fof")
-R('start(' + ','.join(['rule']*16) + ',' + ','.join(['fact']*8) + ')',
-  '&\n'.join([f'({i})' for i in range(24)]),
-  '\n'.join([f'{i}' for i in range(24)]))
+    R('hypothesis(person,a)', '1(0)', '0 is 1')
+    for a in ADJECTIVES:
+        R('adj', a)
+        R('adj', f'~{a}', f'not {a}', weight=0.2)
 
-R('hypothesis(person,a)', '1(0)', '0 is 1')
+    R('property(adj,adj)', '(0(?)&1(?))', 'both 0 and 1')
+    R('property(adj,adj)', '(0(?)|1(?))', '0 or 1')
+    R('property(adj,adj)', '(0(?)<~>1(?))', 'either 0 or 1', weight=0.5)
+    R('property(adj)', '0(?)', '0')
 
-for a in ADJECTIVES:
-    R('adj', a)
-    R('adj', f'~{a}', f'not {a}', weight=0.2)
+    R('rule(property,property)', '![X]:(0[?←X]=>1[?←X])',
+      'everyone who is 0 is 1')
+    R('rule(property,property)', '![X]:(0[?←X]<=>1[?←X])',
+      'everyone who is 0 is 1 and vice versa')
 
-R('property(adj,adj)', '(0(?)&1(?))', 'both 0 and 1')
-R('property(adj,adj)', '(0(?)|1(?))', '0 or 1')
-R('property(adj,adj)', '(0(?)<~>1(?))', 'either 0 or 1', weight=0.5)
-R('property(adj)', '0(?)', '0')
+    for p in NAMES:
+        R('person', p)
 
-R('rule(property,property)', '![X]:(0[?←X]=>1[?←X])',
-  'everyone who is 0 is 1')
-R('rule(property,property)', '![X]:(0[?←X]<=>1[?←X])',
-  'everyone who is 0 is 1 and vice versa')
+    R('fact(person,property)', '1[?←0]', '0 is 1')
+    R('fact(property)', '?[X]:(0[?←X])', 'someone is 0', weight=0.2)
+    R('rule(fact,fact)', '(0)=>(1)', 'if 0 then 1')
+    R('rule(fact,fact)', '(0)<=>(1)', 'if 0 then 1 and vice versa')
+    return R
 
-for p in NAMES:
-    R('person', p)
-
-R('fact(person,property)', '1[?←0]', '0 is 1')
-R('fact(property)', '?[X]:(0[?←X])', 'someone is 0', weight=0.2)
-R('rule(fact,fact)', '(0)=>(1)', 'if 0 then 1')
-R('rule(fact,fact)', '(0)<=>(1)', 'if 0 then 1 and vice versa')
 
 eng, tptp = "eng","tptp"
-
-x=generate_one(R.start())
+grammar = LogicNLI()
+x=generate(grammar)
 print(x@eng)
 print(x@tptp)
 ```
