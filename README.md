@@ -1,5 +1,5 @@
 # unigram
-Unigram is a library for generation with context-sensitive grammars.
+Unigram is a library for random (depth first) generation with context-sensitive grammars (but also context free grammars).
 
 Example with LogicNLI grammar:
 
