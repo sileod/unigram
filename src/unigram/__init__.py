@@ -13,7 +13,7 @@ from collections import defaultdict
 import numpy as np
 from easydict import EasyDict as edict
 from functools import wraps
-
+import time
 
 class FlatList(list):
     def __iadd__(self, other):
@@ -154,12 +154,33 @@ def init_grammar(langs, name=''):
         def __repr__(self):
             return f"RULE:{self.name}{self.args}"
 
+
+
+        def __reduce__(self):
+            def rebuild_rule(cls, signature, constraint, state_constraint, state, weight, templates):
+                # Logic to recreate the rule
+                rule = cls(signature, constraint=constraint, state_constraint=state_constraint, 
+                            vars=state, weight=weight)
+                rule.templates = templates
+                return rule
+                    
+            return (rebuild_rule, (self.__class__,self.signature, self.constraint, self.state_constraint, 
+                                  self.state, self.weight, self.templates))
+                    
     R = Rule
     R.init(langs,name)
-    return R
 
+    classname = f'Rule_{id(object())}'
+    cls_dict = dict(Rule.__dict__)
+    cls_dict.pop('__dict__', None)
+    cls_dict.pop('__weakref__', None)
+    NewRule = type(classname, (object,), cls_dict)
+    globals()[classname] = NewRule
+    module = sys.modules[__name__]
+    setattr(module, classname, NewRule)
+    return NewRule
+    
 Rule = init_grammar(None)
-
 
 class Production(NodeMixin):
     def __init__(self, rule=None,type=None,state=dict()):

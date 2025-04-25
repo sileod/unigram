@@ -1,6 +1,31 @@
 import os, io, subprocess, random, tempfile
 from functools import lru_cache
 from easydict import EasyDict as edict
+import stat, shutil
+from appdirs import user_data_dir
+import pooch
+
+def get_vampire_path():
+    path = shutil.which("vampire")
+    if path:
+        return path
+
+    cache_dir = user_data_dir("vampire-wrapper")
+    os.makedirs(cache_dir, exist_ok=True)
+
+    vampire_path = pooch.retrieve(
+        url="https://github.com/vprover/vampire/releases/download/v4.9casc2024/vampire",
+        fname="vampire",
+        path=cache_dir,
+        known_hash=None  # Optional
+    )
+
+    os.chmod(vampire_path, os.stat(vampire_path).st_mode | stat.S_IEXEC)
+    return vampire_path
+
+
+VAMPIRE_PATH = get_vampire_path()
+
 
 class ProofOutput:
     def __init__(self,proof, input=''):
@@ -38,29 +63,6 @@ def split_clauses(x,prefix='axiom',name_prefix='',debug=False):
     return '\n'.join([f"fof({name_prefix}{i},{prefix},{c})." for i,c in enumerate(clauses)])+"\n"
 
 
-
-def run(expr,solver='vampire',proof=False,cache=None,verbose=True):
-    if not expr.strip().endswith(').'):
-        expr=f"fof(expr,axiom,{expr})."
-    cache_dir = "/mnt/tmpfs/"
-    path = f'{cache_dir}/{abs(hash(expr))}{random.randint(0,1e6)}.p'
-    print(expr,file=open(path,mode="w"))
-    if solver=='vampire':
-        exec = "/mnt/nfs_share_magnet2/dsileo/extlibs/solver/vampire"
-        cmd=f"{exec} {path} --mode vampire --output_axiom_names on -t 20s"
-    if solver=='z3':
-        proof = ' -proof' if proof else ''
-        exec = f"/mnt/nfs_share_magnet2/dsileo/extlibs/z3/build/z3_tptp {proof} -t:20 -file"
-        cmd=f"{exec}:{path}"
-    result = subprocess.run(cmd,
-        shell=False, text=True, capture_output=True)
-    output, error = result.stdout, result.stderr
-    os.remove(path)
-    if not verbose:
-        output=output.split(' SZS status ',1)[-1].split(' for ')[0]
-    return ProofOutput(output, input=expr)
-
-
 def run(expr, solver='vampire', proof=False, verbose=True):
     if not expr.strip().endswith(').') and not expr.strip().startswith('fof'):
         expr = f"fof(expr,axiom,{expr})."
@@ -70,7 +72,7 @@ def run(expr, solver='vampire', proof=False, verbose=True):
         path = f.name
     
     try:
-        cmd = ["/mnt/nfs_share_magnet2/dsileo/extlibs/solver/vampire", path, "--output_axiom_names", "on", "-t", "20s"]
+        cmd = [VAMPIRE_PATH, path, "--output_axiom_names", "on", "-t", "20s"]
         result = subprocess.run(cmd, text=True, capture_output=True)
         output = result.stdout if verbose else result.stdout.split(' SZS status ', 1)[-1].split(' for ')[0]
         return ProofOutput(output, input=expr)
