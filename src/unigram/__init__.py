@@ -101,12 +101,12 @@ SUBSTITUTION_PATTERN = re.compile(r"(\d+)\[\?←(.+?)\]")
 
 default_preprocess_template = lambda s: (re.sub(r'(\d+)', r'{\1}', s) if type(s)==str and '←' not in s else s)
 
-def init_grammar(langs, name=''):
+def init_grammar(langs, name='', preprocess_template=default_preprocess_template):
     class Rule:
         _instances = []
     
         @classmethod
-        def init(cls, langs, name='', preprocess_template=default_preprocess_template):
+        def init(cls, langs, name='', preprocess_template=preprocess_template):
             Rule.langs = langs
             Rule._instances = []
             Rule.preprocess_template = preprocess_template
@@ -157,14 +157,14 @@ def init_grammar(langs, name=''):
 
 
         def __reduce__(self):
-            def rebuild_rule(cls, signature, constraint, state_constraint, state, weight, templates):
+            def rebuild_rule(signature, constraint, state_constraint, state, weight, templates):
                 # Logic to recreate the rule
-                rule = cls(signature, constraint=constraint, state_constraint=state_constraint, 
+                rule = Rule(signature, constraint=constraint, state_constraint=state_constraint, 
                             vars=state, weight=weight)
                 rule.templates = templates
                 return rule
                     
-            return (rebuild_rule, (self.__class__,self.signature, self.constraint, self.state_constraint, 
+            return (rebuild_rule, (self.signature, self.constraint, self.state_constraint, 
                                   self.state, self.weight, self.templates))
                     
     R = Rule
@@ -183,15 +183,20 @@ def init_grammar(langs, name=''):
 Rule = init_grammar(None)
 
 class Production(NodeMixin):
-    def __init__(self, rule=None,type=None,state=dict()):
+    def __init__(self, rule=None,type=None,state=dict(), parent=None):
         self.rule = rule or ''
         self.type= type or self.rule.name
         self.state = {"parents": [],**state}
+
+        if parent:
+            self.parent = parent
+            
         if rule: 
             self.children = [Production(type=element) for element in self.rule.args]
             self.state = {**self.rule.state}
         self.cache=dict()
 
+    
     def __setitem__(self, key, value):
         setattr(self,key,value)
 
@@ -341,8 +346,8 @@ def view(a,*la,**kwa):
 
 
 
-def generate_recursive(start, depth=14, max_steps=1200):
-    start_prod = Production(start)
+def generate_recursive(start, depth=14, max_steps=1200, production_class=Production):
+    start_prod = production_class(start)
     
     def fill_tree(node, depth_budget=depth):
         empty_leaves = [lv for lv in node.leaves if not lv.rule]
@@ -359,7 +364,7 @@ def generate_recursive(start, depth=14, max_steps=1200):
             
             lv.rule = chosen_rule
             # Pass the reduced depth budget to children
-            lv.children = [Production(type=c, state={**chosen_rule.state, **lv.state}) 
+            lv.children = [production_class(type=c, state={**chosen_rule.state, **lv.state}) 
                           for c in chosen_rule.args]
         
         # Reduce depth budget for the next recursive call
@@ -368,13 +373,23 @@ def generate_recursive(start, depth=14, max_steps=1200):
     result = fill_tree(start_prod, depth)
     return [result] if result else []
 
-def generate(start, n_iter=10_000, mode='recursive', *args, **kwargs):
+def generate_recursive_light(*args, **kwargs):
+    return generate_recursive(*args, production_class=LightProduction, **kwargs)
+
+def generate(start, n_iter=10_000, mode='recursive', seed=None, *args, **kwargs):
+    random.seed(seed)
     if type(start)==type:
         start=start.start()
-        
+
+    modes = {'recursive': generate_recursive,
+             'recursive_light': generate_recursive_light,
+             'sequential': generate_sequential
+            }
+    generate = modes[mode]
+    
     """Generate one production using specified mode."""
     for _ in range(n_iter):
-        result = (generate_recursive if mode == 'recursive' else generate_sequential)(start, *args, **kwargs)
+        result = generate(start, *args, **kwargs)
         if result: return result[0]
     raise ValueError('Incomplete generation')
 
@@ -443,3 +458,95 @@ def test_grammar(grammar=G0()):
     production = generate(grammar)
     return production, production@"eng"
 
+
+
+
+class LightProduction:
+    """A lightweight alternative to the 'Production' class, without anytree overhead."""
+    def __init__(self, rule=None, type=None, state=dict(), parent=None):
+        self.rule = rule or ''
+        self.type = type or self.rule.name
+        self.parent = parent
+        self.state = {"parents": [], **state}
+        self.cache = dict()
+        self.children = []
+        if rule:
+            self.state = {**self.rule.state, **state}
+            # Manually create children and set their parent to self
+            self.children = [LightProduction(type=element, state=self.state, parent=self) for element in self.rule.args]
+
+    def get_ancestors(self):
+        """Manually traverses up the tree to get ancestors."""
+        ancestors = []
+        node = self.parent
+        while node:
+            ancestors.append(node)
+            node = node.parent
+        return ancestors
+
+    @property
+    def leaves(self):
+        """Manually find all leaves of this node."""
+        if not self.children:
+            return [self]
+        leaves = []
+        for child in self.children:
+            leaves.extend(child.leaves)
+        return leaves
+
+    def check(self, mode='args'):
+        """Re-implementation of the check logic without anytree."""
+        if not self.rule: return True
+        
+        if mode == 'args':
+            arguments = self.children
+            if not all(x.rule for x in arguments):
+                return True
+            # The distinct_constraint is not used in the original code, but kept for parity.
+            # You would need to implement it manually if needed.
+            return all(constraint(arguments) for constraint in self.rule.constraint)
+        
+        if mode == 'state':
+            nodes_to_check = [self] + self.get_ancestors()
+            return all(constraint(x) 
+                       for x in nodes_to_check 
+                       for constraint in x.rule.state_constraint)
+        return True
+
+    def render(self, lang=None):
+        if lang is None:
+            # We can't use RenderTree, so we return a simplified representation.
+            return self.__repr__()
+            
+        if lang in self.cache:
+            return self.cache[lang]
+        
+        try:
+            template = self.rule.templates[lang]
+        except (AttributeError, KeyError):
+            return "#" + self.type
+
+        # Recursively render children
+        args = [child.render(lang) for child in self.children]
+
+        # Template application logic is identical to Production
+        if isinstance(template, str):
+            if '?←' in template:
+                # Assuming Substitution function is globally available
+                template_func = Substitution(template, lang)
+            else:
+                template_func = template.format
+        else: # It's a function
+            template_func = template
+            
+        out = template_func(*args)
+        
+        if "#" not in out:
+            self.cache[lang] = out
+        return out
+
+    # Make it compatible with the @ operator
+    __matmul__ = render
+
+    def __repr__(self):
+        return f"LightPROD:{self.type}" + (str(self.rule.args) if self.rule else '')

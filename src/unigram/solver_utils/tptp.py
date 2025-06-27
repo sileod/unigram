@@ -4,6 +4,7 @@ from easydict import EasyDict as edict
 import stat, shutil
 from appdirs import user_data_dir
 import pooch
+import json
 
 def get_vampire_path():
     path = shutil.which("vampire")
@@ -26,8 +27,24 @@ def get_vampire_path():
 
 VAMPIRE_PATH = get_vampire_path()
 
+class Serializable(dict):
+    """
+    Drop-in mix-in: any subclass becomes automatically json.dumps-able.
+    """
 
-class ProofOutput:
+    def __setattr__(self, key, value):
+        super().__setattr__(key, value)   # keep normal attribute behaviour
+        self[key] = value                 # keep the dict in sync
+
+    def __delattr__(self, key):
+        super().__delattr__(key)
+        self.pop(key, None)
+
+    # nice-to-have helper
+    def to_json(self, **dump_kw):
+        return json.dumps(self, **dump_kw)
+
+class ProofOutput(Serializable):
     def __init__(self,proof, input=''):
         self.proof = proof
         self.rules, self.indices = extract_inferences_and_formulas(proof)
@@ -47,6 +64,11 @@ class ProofOutput:
     def to_dict(self):
         return edict({k: getattr(self,k) for k in self.__dict__  if not k.startswith('__')})
 
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+
+    
 def to_tptp(x,background='',problem='prem',neg='',mode='sat',use_hypothesis=True):
     mode={'sat':'axiom','proof':'conjecture'}[mode]
     premise = split_clauses(x.tptp,prefix=mode,name_prefix="p")
