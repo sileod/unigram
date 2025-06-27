@@ -10,3 +10,7 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Logs and Databases
+*.log
+*.sqlite3
