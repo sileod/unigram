@@ -1,6 +1,7 @@
 from .. import Rule, Substitution, Constraint, generate, init_grammar
 import exrex
 import funcy as fc
+import itertools
 
 C, S = Constraint, Substitution
 

@@ -68,7 +68,13 @@ class ProofOutput(Serializable):
         return json.dumps(self.to_dict())
 
 
-    
+def split_clauses(x,prefix='axiom',name_prefix='',do_split=True):
+    clauses=x.split('&\n')
+    if any(a.count('(')!=a.count(')') for a in clauses):
+        clauses=[x]
+    return '\n'.join([f"fof({name_prefix}{i},{prefix},{c})." for i,c in enumerate(clauses)])+"\n"
+
+
 def to_tptp(x,background='',problem='prem',neg='',mode='sat',use_hypothesis=True):
     mode={'sat':'axiom','proof':'conjecture'}[mode]
     premise = split_clauses(x.tptp,prefix=mode,name_prefix="p")
@@ -77,13 +83,6 @@ def to_tptp(x,background='',problem='prem',neg='',mode='sat',use_hypothesis=True
     else:
         hypothesis=""
     return f"{background}\n{premise}\n{hypothesis}".replace('¿','?')
-
-def split_clauses(x,prefix='axiom',name_prefix='',debug=False):
-    clauses=x.split('&\n')
-    if any(a.count('(')!=a.count(')') for a in clauses):
-        clauses=[x]
-    return '\n'.join([f"fof({name_prefix}{i},{prefix},{c})." for i,c in enumerate(clauses)])+"\n"
-
 
 def run(expr, solver='vampire', proof=False, verbose=True):
     if not expr.strip().endswith(').') and not expr.strip().startswith('fof'):
@@ -102,11 +101,6 @@ def run(expr, solver='vampire', proof=False, verbose=True):
         os.remove(path)
 
 
-def split_clauses(x,prefix='axiom',name_prefix='',do_split=True):
-    clauses=x.split('&\n')
-    if any(a.count('(')!=a.count(')') for a in clauses):
-        clauses=[x]
-    return '\n'.join([f"fof({name_prefix}{i},{prefix},{c})." for i,c in enumerate(clauses)])+"\n"
 
 
 def extract_inferences_and_formulas(proof):
