@@ -376,7 +376,7 @@ def generate_recursive(start, depth=14, max_steps=1200, production_class=Product
 def generate_recursive_light(*args, **kwargs):
     return generate_recursive(*args, production_class=LightProduction, **kwargs)
 
-def generate(start, n_iter=10_000, mode='recursive', seed=None, *args, **kwargs):
+def generate(start, n_iter=10_000, mode='recursive', seed=None, min_depth=None, *args, **kwargs):
     random.seed(seed)
     if type(start)==type:
         start=start.start()
@@ -390,6 +390,8 @@ def generate(start, n_iter=10_000, mode='recursive', seed=None, *args, **kwargs)
     """Generate one production using specified mode."""
     for _ in range(n_iter):
         result = generate(start, *args, **kwargs)
+        if min_depth and result and result[0].height < min_depth:
+            continue
         if result: return result[0]
     raise ValueError('Incomplete generation')
 
