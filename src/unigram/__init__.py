@@ -14,6 +14,9 @@ import numpy as np
 from easydict import EasyDict as edict
 from functools import wraps
 import time
+from functools import lru_cache
+from collections import deque
+import random
 
 class FlatList(list):
     def __iadd__(self, other):
@@ -289,7 +292,7 @@ def save(production,stack,step):
     #stack.insert(random.choice(ckpt_indices or [0]), ckpt)
     stack.insert(([0]+ckpt_indices)[-1], ckpt)
 
-def generate_sequential(start,k=8,depth=14, skip_check=False,max_steps=1200,max_concentration_rate=0.8):
+def generate_sequential(start,k=8,depth=14, skip_check=False,max_steps=1200,max_concentration_rate=0.8, **kwargs):
     start=Production(start)
     start.step=step=0
     start.save=0
@@ -346,7 +349,7 @@ def view(a,*la,**kwa):
 
 
 
-def generate_recursive(start, depth=14, max_steps=1200, production_class=Production):
+def generate_recursive(start, depth=14, max_steps=1200, production_class=Production, **kwargs):
     start_prod = production_class(start)
     
     def fill_tree(node, depth_budget=depth):
@@ -382,6 +385,7 @@ def generate(start, n_iter=10_000, mode='recursive', seed=None, min_depth=None, 
         start=start.start()
 
     modes = {'recursive': generate_recursive,
+              'fast': generate_fast,
              'recursive_light': generate_recursive_light,
              'sequential': generate_sequential
             }
@@ -389,7 +393,7 @@ def generate(start, n_iter=10_000, mode='recursive', seed=None, min_depth=None, 
     
     """Generate one production using specified mode."""
     for _ in range(n_iter):
-        result = generate(start, *args, **kwargs)
+        result = generate(start, min_depth=min_depth, *args, **kwargs)
         if min_depth and result and result[0].height < min_depth:
             continue
         if result: return result[0]
@@ -552,3 +556,200 @@ class LightProduction:
 
     def __repr__(self):
         return f"LightPROD:{self.type}" + (str(self.rule.args) if self.rule else '')
+
+
+
+class FastProduction:
+    """
+    An optimized production node class for fast generation.
+    - Tracks `depth` during creation for O(1) access.
+    - Caches `height` after a single calculation.
+    - Its `render` method is compatible with the grammar's multi-language setup.
+    """
+    def __init__(self, rule=None, type=None, parent=None, children=None):
+        self.rule = rule
+        self.type = type or (rule.name if rule else '')
+        self.parent = parent
+        self.children = children if children is not None else []
+        self._height = -1  # Uncalculated
+        self.cache = {}
+
+    def update_height(self):
+        """Calculates height via post-order traversal. Call once on the root."""
+        if self._height != -1:
+            return self._height
+        if not self.children:
+            self._height = 0
+        else:
+            self._height = 1 + max(child.update_height() for child in self.children)
+        return self._height
+
+    @property
+    def height(self):
+        """
+        Returns the height of the tree.
+        Calculates it if it hasn't been computed yet.
+        """
+        if self._height == -1:
+            self.update_height()
+        return self._height
+
+    def render(self, lang=None):
+        if lang in self.cache:
+            return self.cache[lang]
+        
+        try:
+            template = self.rule.templates[lang]
+        except (AttributeError, KeyError):
+            return "#" + self.type
+
+        args = [child.render(lang) for child in self.children]
+        
+        if callable(template):
+            template_func = template
+        elif isinstance(template, str):
+            # Your original Substitution helper must be available in the global scope
+            template_func = Substitution(template, lang) if '?←' in template else template.format
+        else:
+            template_func = template
+            
+        out = template_func(*args)
+        
+        if "#" not in out:
+            self.cache[lang] = out
+        return out
+
+    __matmul__ = render
+    
+    def __repr__(self):
+        return f"FastPROD:{self.type}" + (str(self.rule.args) if self.rule else '')
+
+    def dict(self,use_cls=False):
+        return edict({l:self@l for l in self.rule.langs}|(dict(cls=self) if use_cls else dict()))
+
+    def __getitem__(self, key):
+        """Allows accessing children by index or slice, e.g., production[0]."""
+        return self.children[key]
+
+    def __len__(self):
+        """Returns the number of direct children."""
+        return len(self.children)
+
+# =================================================================================
+# PART 2: NEW, NECESSARY HELPER FUNCTION
+# This must be available for `generate_fast` to work.
+# =================================================================================
+
+@lru_cache(maxsize=1)
+def _precompute_min_heights(Rule):
+    """
+    Analyzes the grammar once to find the minimum height from any non-terminal to a terminal.
+    Result: dict mapping {'type_name': min_height}
+    """
+    non_terminals = {r.name for r in Rule._instances}
+    min_heights = {nt: float('inf') for nt in non_terminals}
+    
+    # Terminal rules have a height of 0 from their own type
+    for r in Rule._instances:
+        if not r.args:
+            min_heights[r.name] = 0
+            
+    # Iteratively update heights based on dependencies (Bellman-Ford like)
+    for _ in range(len(non_terminals) + 1):
+        updated = False
+        for r in Rule._instances:
+            if r.args:
+                # The height of this rule is 1 + max height of its children
+                max_child_height = max((min_heights.get(arg, float('inf')) for arg in r.args), default=-1)
+                if max_child_height != float('inf'):
+                    new_height = 1 + max_child_height
+                    if new_height < min_heights[r.name]:
+                        min_heights[r.name] = new_height
+                        updated = True
+        if not updated:
+            break
+    return min_heights
+
+# =================================================================================
+# PART 3: THE FAST GENERATOR FUNCTION
+# This is the function you will add to your `modes` dictionary.
+# =================================================================================
+
+def generate_fast(start, depth=12, production_class=None, min_depth=None, n_iter=1000, **kwargs):
+    """
+    A fast, non-recursive generator with robust depth control.
+    
+    It uses an efficient internal node representation for generation and then converts
+    the final result to the desired `production_class` to maintain interface compatibility.
+    """
+    if production_class is None:
+        production_class = FastProduction
+
+    # --- Internal helper classes for optimized generation ---
+    class _FastNode:
+        """A temporary, lightweight node for the generation algorithm."""
+        __slots__ = ['rule', 'type', 'depth', 'children', '_height']
+        def __init__(self, rule=None, type=None, depth=0):
+            self.rule = rule
+            self.type = type or (rule.name if rule else '')
+            self.depth = depth
+            self.children = []
+            self._height = -1
+        
+        def update_height(self):
+            if self._height != -1: return self._height
+            if not self.children: self._height = 0
+            else: self._height = 1 + max(c.update_height() for c in self.children)
+            return self._height
+
+    def _convert_to_final_class(fast_node, target_class):
+        """Recursively converts the internal _FastNode tree to the user's desired class."""
+        # This is a post-order traversal conversion
+        final_children = [_convert_to_final_class(child, target_class) for child in fast_node.children]
+        
+        # Instantiate the user's desired class
+        final_node = target_class(rule=fast_node.rule, type=fast_node.type, children=final_children)
+        
+        # Set parent links if the target class supports it
+        for child in final_children:
+            if hasattr(child, 'parent'):
+                child.parent = final_node
+        return final_node
+
+    # --- Main generation logic ---
+    min_heights = _precompute_min_heights(type(start))
+    max_depth = depth # Use the 'depth' parameter as the maximum depth
+    min_depth = min_depth or 0
+
+    for _ in range(n_iter):
+        root = _FastNode(rule=start)
+        expansion_q = deque([_FastNode(type=arg, depth=1) for arg in start.args])
+        root.children = list(expansion_q)
+
+        valid_path = True
+        while expansion_q:
+            node = expansion_q.popleft()
+            
+            must_be_terminal = (node.depth >= max_depth)
+            min_remaining_height = min_heights.get(node.type, float('inf'))
+            if node.depth + min_remaining_height >= max_depth:
+                must_be_terminal = True
+
+            rules = start.get_rules(node.type, terminals=must_be_terminal, shuffle=True)
+            if not rules and not must_be_terminal:
+                rules = start.get_rules(node.type, terminals=True, shuffle=True)
+
+            if not rules:
+                valid_path = False; break
+
+            chosen_rule = random.choice(rules)
+            node.rule = chosen_rule
+            node.children = [_FastNode(type=arg, depth=node.depth + 1) for arg in chosen_rule.args]
+            expansion_q.extend(node.children)
+
+        if valid_path:
+            final_height = root.update_height()
+            if final_height >= min_depth:
+                return [_convert_to_final_class(root, production_class)]
+    
+    raise ValueError(f"Failed to generate valid production in depth range [{min_depth}, {max_depth}] in {n_iter} attempts.")
