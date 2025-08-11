@@ -1,4 +1,4 @@
-from .. import Rule, Substitution, Constraint, generate, init_grammar
+from .. import Substitution, Constraint, generate, init_grammar
 import exrex
 import funcy as fc
 import itertools
@@ -17,7 +17,7 @@ ADJS=['rich','quiet','old','tall','kind','brave','wise','happy','creative',
 ADJS+=['left_handed','curly_haired','popular','romantic','blue_eyed','long_haired','scarred','colorblind']
     
 
-def FOL_grammar(N_PREMS=8, names=NAMES, adjs=ADJS):
+def FOL_grammar(N_PREMS=8, names=NAMES, adjs=ADJS, empty_room=True):
     
     R=init_grammar(['tptp','eng'])
     R('start(setup)', '0')
@@ -55,10 +55,11 @@ def FOL_grammar(N_PREMS=8, names=NAMES, adjs=ADJS):
     
     def rs(x):
         return f"(there_is_a_room)&\n{x[0]@tptp}", f"there is a room.\n{x[0]@eng}"
-        
-    for persons in [names[:4],[],[]]:
-        R('setup(valid_block)', lambda x:rs(x)[0], lambda x:rs(x)[1],
-            vars=dict(persons=[],room=room), weight=len(psums))
+
+    if empty_room:
+        for persons in [names[:4],[],[]]:
+            R('setup(valid_block)', lambda x:rs(x)[0], lambda x:rs(x)[1],
+                vars=dict(persons=[],room=room), weight=len(psums))
     
     def neg_constraint(x):
         """avoids material negation issues"""
