@@ -1,43 +1,15 @@
+# generate.py
 import random
 from collections import deque, ChainMap
 from functools import lru_cache
 import anytree
 from easydict import EasyDict as edict
-
+# Assuming .grammar and other imports are correctly set up in the project structure
+from .grammar import Substitution
 
 import re
-def Substitution(template, lang=None):
-    def replace_template(template, a):
-        # Make numbers formattable 0 -> {0}
-        wrap = lambda s: (re.sub(r'(\d+)', r'{\1}', s) if isinstance(s, str) else s)
 
-        # Function to safely replace only unescaped '?'
-        def replace_match(m):
-            slot_idx = int(m.group(1))
-            replacement = m.group(2)
-            # The children args 'a' might be FastProduction nodes, so render them if needed
-            arg_to_sub = a[slot_idx]
-            if not isinstance(arg_to_sub, str):
-                 arg_to_sub = arg_to_sub.render(lang)
-            return re.sub(r'(?<!\\)\?', replacement, arg_to_sub)
-
-        inner_replaced = re.sub(r"(\d+)\[\?←(.+?)\]", replace_match, template)
-        
-        # Render the remaining children before formatting
-        rendered_args = [arg.render(lang) if not isinstance(arg, str) else arg for arg in a]
-        output = wrap(inner_replaced).format(*rendered_args)
-
-        # Convert escaped "\?" back to "?" after processing
-        return output.replace(r'\?', '?')
-
-    # The original Substitution returned a function that expected rendered strings.
-    # The fix here is to make it robust enough to handle node objects too.
-    def sub(*a, **ka):
-        return replace_template(template, a)
-
-    return sub
-
-
+# ... (FastProduction class and _precompute_height_bounds function remain unchanged) ...
 class FastProduction:
     """A unified, high-performance production node for all generation modes."""
     __slots__ = ('rule', 'type', 'parent', 'children', 'local_state', 'cache', '_depth', 'step', 'save', '_height')
@@ -123,8 +95,6 @@ class FastProduction:
             if not all(x.rule for x in self.children): return True
             return all(c(self.children) for c in self.rule.constraint)
         if mode == 'state':
-            # A state constraint function `c` receives a node `x`,
-            # and can now correctly access `x.state`.
             return all(c(x) for x in [self] + list(self.ancestors) for c in x.rule.state_constraint)
         return True
 
@@ -135,20 +105,12 @@ class FastProduction:
         if template is None: return "#" + self.type
         
         if callable(template):
-            # A callable template receives children as *args. If that template
-            # function needs state, it can now correctly access it via node.state
-            # (e.g., args[0].parent.state).
             args, template_func = self.children, template
         else: # String template
-            # For string templates, we decide which function to use based on content
             if '?←' in template:
-                # The Substitution function needs the actual child nodes, not their rendered strings
                 args = self.children
-                # In the user's original setup, Substitution is imported from grammar.py
-                # This call assumes it is available in the scope.
                 template_func = Substitution(template, lang)
             else:
-                # For regular .format() templates, we render the children first
                 args = [c.render(lang) for c in self.children]
                 template_func = template.format
 
@@ -163,12 +125,10 @@ class FastProduction:
         if self.rule: return f"PROD:{self.type}({', '.join(self.rule.args)})"
         else: return f"PROD:{self.type}"
     
-
     def dict(self, use_cls=False):
         res = edict({l: self@l for l in self.rule.langs})
         if use_cls: res.cls = self
         return res
-
 
     def to_anytree(self):
         memo = {}
@@ -176,7 +136,6 @@ class FastProduction:
             if id(node) in memo: return memo[id(node)]
             new_node = anytree.Node(node.type)
             new_node.rule = node.rule
-            # Convert the ChainMap view to a regular dict for export
             new_node.state = dict(node.state) 
             for child in node.children:
                 _convert_node(child).parent = new_node
@@ -204,83 +163,82 @@ def _precompute_height_bounds(Rule):
 
 def generate_sequential(start, k=1, max_depth=12, min_depth=None, bushiness=1.0,
                         skip_check=False, max_steps=5000, save_prob=0.0125, **kwargs):
-    """
-    A high-yield, depth-first, stateful generator with relaxed topological control.
-
-    Args:
-        start: The starting rule object.
-        k (int): The branching factor for exploration.
-        max_depth (int): The absolute maximum depth for any leaf.
-        min_depth (int): The minimum depth the *deepest* leaf in the tree must have.
-        bushiness (float): A "pickiness" parameter from 0.0 to 1.0 controlling the
-            trade-off between generation speed and topological strictness.
-            - 1.0 ("Picky/Bushy"): Aggressively prunes branches that can't reach
-              min_depth. This is slower but generates dense trees where all leaves
-              are deep.
-            - 0.0 ("Relaxed/Viney"): Never prunes short branches, maximizing generation
-              speed and yield. Relies on the final check to ensure depth.
-        skip_check (bool): If True, skips constraint checks for performance.
-        max_steps (int): Safety limit to prevent infinite generation.
-        save_prob (float): Probability of saving a state for backtracking.
-    """
     min_depth = min_depth or 0
     if min_depth > max_depth: return []
-        
+
     Rule = type(start)
     min_heights, max_heights = _precompute_height_bounds(Rule)
 
-    def save(p, s, st): ckpt = p.clone(); ckpt.step, ckpt.save = st, 1; s.insert(([0] + [i for i, x in enumerate(s) if hasattr(x, 'save') and x.save])[-1], ckpt)
+    def save(p, s, st):
+        ckpt = p.clone(); ckpt.step, ckpt.save = st, 1
+        s.insert(([0] + [i for i, x in enumerate(s) if hasattr(x, 'save') and x.save])[-1], ckpt)
+
     def s_choices(seq, w, k):
         if not seq: return []
         if w and sum(w) > 0: return random.choices(seq, weights=w, k=k)
         return random.sample(seq, min(k, len(seq)))
 
     start_prod = FastProduction(start)
+    start_prod.local_state['target_min_depth'] = min_depth
     start_prod.step, start_prod.save = 0, 0
+    
     stack, step = [start_prod], 0
     while stack:
         step += 1
         if step > max_steps: return []
         prod = stack.pop()
-        
+
         lv = prod._find_first_unexpanded_leaf()
 
         if not lv:
-            all_leaf_depths = [leaf.depth for leaf in prod.leaves]
-            deepest_leaf_depth = max(all_leaf_depths) if all_leaf_depths else 0
-            
-            if min_depth <= deepest_leaf_depth <= max_depth and \
+            prod.update_height()
+            if min_depth <= prod.height <= max_depth and \
                (skip_check or all(x.check() for x in [prod] + list(prod.descendants))):
                 return [prod]
             continue
-            
+
+        current_target_min_depth = lv.state.get('target_min_depth', 0)
+        
+        # --- RULE SELECTION AND PRUNING ---
         potential_rules = Rule.get_rules(lv.type, shuffle=True)
-        rules = []
+        valid_non_terminals, valid_terminals = [], []
+
         for r in potential_rules:
+            # Min height from this rule to a leaf
             min_h_rule = 0 if not r.args else 1 + max((min_heights.get(a, max_depth + 1) for a in r.args), default=0)
+            # Max height this rule could possibly produce
             max_h_rule = 0 if not r.args else 1 + max((max_heights.get(a, 0) for a in r.args), default=0)
 
-            # --- HIGH-YIELD PRUNING LOGIC ---
+            # Hard Pruning:
+            # 1. Don't exceed max_depth
+            if lv.depth + min_h_rule > max_depth: continue
+            # 2. Must be able to reach the target depth for this branch
+            if lv.depth + max_h_rule < current_target_min_depth: continue
             
-            # 1. Absolute Safety Check: Prune if this rule *guarantees* exceeding max_depth.
-            # This is the only non-negotiable hard constraint during generation.
-            if lv.depth + min_h_rule > max_depth:
-                continue
+            if r.args:
+                valid_non_terminals.append(r)
+            else: # Terminal rule
+                # 3. If we pick a terminal, this leaf's depth must meet the target
+                if lv.depth >= current_target_min_depth:
+                    valid_terminals.append(r)
+        
+        # --- DECIDE WHETHER TO TERMINATE OR CONTINUE ---
+        rules_to_consider = []
+        # If the branch has met its depth goal and we can terminate, we should
+        # prefer to do so, especially with low bushiness.
+        can_terminate = len(valid_terminals) > 0
+        has_met_goal = lv.depth >= current_target_min_depth
 
-            # 2. Topological Heuristic: Check if this rule is "too short" to reach min_depth.
-            is_too_short = (lv.depth + max_h_rule < min_depth)
-
-            # 3. Probabilistic Pruning: If the rule is too short, we become "picky" based on
-            # bushiness. High bushiness makes us likely to prune. Low bushiness makes us
-            # likely to accept it, prioritizing yield over strict topology.
-            if is_too_short and (random.random() < bushiness):
-                continue
+        # With probability (1-bushiness), force termination if possible.
+        # This creates "vines" for low bushiness.
+        if has_met_goal and can_terminate and random.random() > bushiness:
+             rules_to_consider = valid_terminals
+        else:
+             rules_to_consider = valid_non_terminals + valid_terminals
+        
+        if not rules_to_consider: continue
             
-            rules.append(r)
-        
-        if not rules: continue
-        
-        rules_to_try = s_choices(rules, [r.weight for r in rules], k)
+        rules_to_try = s_choices(rules_to_consider, [r.weight for r in rules_to_consider], k)
         if len(rules_to_try) > 1 and random.random() < save_prob: save(prod, stack, step)
         
         for i, rule in enumerate(rules_to_try):
@@ -292,9 +250,35 @@ def generate_sequential(start, k=1, max_depth=12, min_depth=None, bushiness=1.0,
             for idx in reversed(path): target_lv = target_lv.children[idx]
 
             target_lv.rule = rule
-            if rule.state:
-                target_lv.local_state.update(rule.state)
-            target_lv.children = [FastProduction(type=c, parent=target_lv) for c in rule.args]
+            if rule.state: target_lv.local_state.update(rule.state)
+
+            if rule.args:
+                # One child MUST carry the torch for the depth requirement.
+                critical_candidates = [
+                    idx for idx, arg_type in enumerate(rule.args)
+                    if target_lv.depth + 1 + max_heights.get(arg_type, 0) >= current_target_min_depth
+                ]
+                if not critical_candidates: continue # Should not happen due to prior checks
+                
+                critical_idx = random.choice(critical_candidates)
+                
+                new_children = []
+                for idx, arg_type in enumerate(rule.args):
+                    child = FastProduction(type=arg_type, parent=target_lv)
+                    if idx == critical_idx:
+                        # This child inherits the same absolute depth target
+                        child.local_state['target_min_depth'] = current_target_min_depth
+                    else:
+                        # Other children get a "bushiness"-controlled target.
+                        # For b=0, target is own depth (shallow). For b=1, target is the main target (bushy).
+                        remaining_depth = max(0, current_target_min_depth - child.depth)
+                        bushy_addon = int(bushiness * remaining_depth)
+                        child.local_state['target_min_depth'] = child.depth + random.randint(0, bushy_addon)
+                    new_children.append(child)
+                target_lv.children = new_children
+            else:
+                 target_lv.children = []
+
 
             if not skip_check and (not target_lv.check('state') or (all(s.rule for s in target_lv.siblings) and not target_lv.parent.check('args'))):
                 continue

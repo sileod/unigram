@@ -86,7 +86,6 @@ def Substitution(template, lang=None):
 
     return sub
 
-
 # Pre-compile regex patterns
 NUMBER_PATTERN = re.compile(r'(\d+)')
 SUBSTITUTION_PATTERN = re.compile(r"(\d+)\[\?←(.+?)\]")

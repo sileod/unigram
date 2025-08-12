@@ -5,6 +5,7 @@ import random
 import re
 from easydict import EasyDict as edict
 import numpy as np
+from unigram.grammar import Substitution
 
 class FastProduction:
     """
@@ -146,7 +147,6 @@ def generate_recursive(start, depth=12, min_depth=None, n_iter=1000, bushiness_f
         def __init__(self, type, depth): self.type, self.depth, self.children = type, depth, []
         def __repr__(self): return f"_{self.type}(d={self.depth})"
         
-    # --- START OF MODIFICATION ---
     def _select_rule(rules):
         """Performs a weighted sample from a list of rules."""
         # This function assumes 'rules' is a non-empty list.
@@ -158,7 +158,6 @@ def generate_recursive(start, depth=12, min_depth=None, n_iter=1000, bushiness_f
             return random.choice(rules)
             
         return random.choices(rules, weights=weights, k=1)[0]
-    # --- END OF MODIFICATION ---
 
     # --- The Recursive Tree-Building Helper Function ---
     def _build_tree(node, min_height_target):
@@ -168,14 +167,12 @@ def generate_recursive(start, depth=12, min_depth=None, n_iter=1000, bushiness_f
 
         # Base case 2: Target met, fill randomly respecting only max_depth
         if min_height_target <= 0:
-            # --- MODIFIED to use weighted sampling ---
             potential_rules = [r for r in Rule.get_rules(node.type)
                                if node.depth + min_heights.get(r.name, 0) <= max_depth]
             if not potential_rules:
                 return False # Failure
             
             node.rule = _select_rule(potential_rules)
-            # --- END OF MODIFICATION ---
 
             for arg in node.rule.args:
                 child_node = _Node(type=arg, depth=node.depth + 1)
