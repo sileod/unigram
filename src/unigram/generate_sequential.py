@@ -162,7 +162,7 @@ def _precompute_height_bounds(Rule):
 
 
 def generate_sequential(start, k=1, max_depth=12, min_depth=None, bushiness=1.0,
-                        skip_check=False, max_steps=5000, save_prob=0.0125, **kwargs):
+                        skip_check=False, max_steps=5000, save_prob=0.0125, debug=False, **kwargs):
     min_depth = min_depth or 0
     if min_depth > max_depth: return []
 
@@ -198,7 +198,8 @@ def generate_sequential(start, k=1, max_depth=12, min_depth=None, bushiness=1.0,
             continue
 
         current_target_min_depth = lv.state.get('target_min_depth', 0)
-        
+        if debug: print(f"[{step}] Expanding '{lv.type}' @ d={lv.depth} (goal_min={current_target_min_depth}) | Stack: {len(stack)}")
+            
         # --- RULE SELECTION AND PRUNING ---
         potential_rules = Rule.get_rules(lv.type, shuffle=True)
         valid_non_terminals, valid_terminals = [], []
@@ -235,7 +236,8 @@ def generate_sequential(start, k=1, max_depth=12, min_depth=None, bushiness=1.0,
              rules_to_consider = valid_terminals
         else:
              rules_to_consider = valid_non_terminals + valid_terminals
-        
+
+        if debug: print(f"  Candidates ({len(rules_to_consider)}): {[r.name for r in rules_to_consider]}")
         if not rules_to_consider: continue
             
         rules_to_try = s_choices(rules_to_consider, [r.weight for r in rules_to_consider], k)

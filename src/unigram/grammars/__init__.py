@@ -1,4 +1,5 @@
 from .FOL import FOL_grammar
+from .tinypy import tinypy_grammar
 from ..grammar import init_grammar
 import random
 import string
