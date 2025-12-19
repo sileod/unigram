@@ -52,7 +52,24 @@ print(x@eng)
 print(x@tptp)
 ```
 
-Citation:
+## Pre-loaded grammars
+
+We feature pre-written grammars including:
+- `tinypy_grammar`, reproducing the [tinypy](https://github.com/MarwaNair/TinyPy-Generator), a synthetic toy grammar of python for LLM training
+- `FOL_grammar`, a sophisticated grammar for first order logic aligned with simplified English
+- `arith_grammar` (a simple grammar for arithmeics)
+- `regex_grammar`, a grammar generating regular expressions
+
+Example:
+```python
+from unigram.grammars import FOL_grammar, tinypy_grammar
+from unigram import generate
+g=tinypy_grammar()
+x=generate(g)
+print(x@'py')
+```
+
+### Citation:
 ```
 @inproceedings{sileo-2024-scaling,
     title = "Scaling Synthetic Logical Reasoning Datasets with Context-Sensitive Declarative Grammars",
