@@ -69,7 +69,7 @@ x=generate(g)
 print(x@'py')
 ```
 
-### Citation:
+### Citation for the unigram framework:
 ```
 @inproceedings{sileo-2024-scaling,
     title = "Scaling Synthetic Logical Reasoning Datasets with Context-Sensitive Declarative Grammars",
