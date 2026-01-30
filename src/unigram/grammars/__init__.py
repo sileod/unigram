@@ -1,10 +1,11 @@
 from .FOL import FOL_grammar
 from .tinypy import tinypy_grammar
+from .english import simple_english_grammar
 from ..grammar import init_grammar
 import random
 import string
 
-def arith():
+def arith_grammar():
     g = init_grammar(['py'], name="arithmetics", preprocess_template=lambda s:s)
     g('start(expr)',        '{0}')
     g('expr(expr)',       '({0})',            weight=1)

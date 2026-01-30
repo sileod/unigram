@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "unigram"
-version = "0.15.0"
+version = "0.15.1"
 description = ""
 authors = ["Damien Sileo"]
 license = "MIT"
@@ -11,6 +11,7 @@ python = "^3.7"
 anytree = "^2"
 networkx = "*"
 funcy = "*"
+exrex = "*"
 
 [build-system]
 requires = ["poetry-core"]

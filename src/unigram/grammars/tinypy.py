@@ -1,7 +1,7 @@
 import random
 from .. import Substitution, Constraint, generate, init_grammar
 
-def tinypy_grammar(level=None):
+def tinypy_grammar(level=None, max_number=16):
     R = init_grammar(['py'])
 
     # -------------------------------------------------------------------------
@@ -30,7 +30,7 @@ def tinypy_grammar(level=None):
         # Prefer unused variables
         candidates = [c for c in chars if c not in state['assigned']]
         v = random.choice(candidates if candidates else chars)
-        d = str(random.randint(0, 255))
+        d = str(random.randint(0, max_number))
         state['assigned'][v] = d
         return f"{v} = {d}\n"
 
@@ -46,7 +46,7 @@ def tinypy_grammar(level=None):
     def get_var(ctx):
         """Returns a known variable, or falls back if none exist."""
         if state['assigned']: return random.choice(list(state['assigned'].keys()))
-        return str(random.randint(0, 255))
+        return str(random.randint(0, max_number))
 
     def get_last_var(ctx):
         """Returns the most recently modified variable (for print)."""
@@ -91,7 +91,7 @@ def tinypy_grammar(level=None):
     R('RESET(CTX)', reset_state)
 
     # Terminals
-    R('DIGIT', lambda: str(random.randint(0, 255)))
+    R('DIGIT', lambda: str(random.randint(0, max_number)))
     R('VAR(CTX)', lambda x: random.choice(chars))
     for op in ['+', '-', '*', '/']: R('ARITH_OP', op)
     for op in ['<', '>', '<=', '>=', '!=', '==']: R('REL_OP', op)
