@@ -13,11 +13,51 @@ def arith_grammar():
     g('expr(expr,expr)',  '{0} - {1}', weight=1)
     g('expr(expr,expr)',  '{0} * {1}')
     g('expr(expr,expr)',  '{0} / {1}')
-    g('expr(expr)',       '({0})**2',         weight=.25)
+    #g('expr(expr)',       '({0})**2',         weight=.25)
     g('expr(value)',       '{0}',weight= 10)
     g('value',  'NUM')
 
     return g
+
+def dyck_grammar(include_unicode=True, allow_atoms=True):
+
+    parenthesis_pairs = [
+        ("(", ")"),   
+        ("[", "]"),   
+        ("<", ">"),   
+        ("⟨", "⟩"),   
+        ("⟦", "⟧"),   
+        ("⟪", "⟫"), 
+    ]
+    
+    D = init_grammar(['dyck'], name="dyck", preprocess_template=lambda x: x)
+    
+    D('start(seq)', '{0}')
+    
+    D('seq', '', weight=4)                      # empty (base case)
+    D('seq(expr)', '{0}', weight=5)             # single expression
+    D('seq(expr, seq)', '{0}{1}', weight=2)     # expr followed by more
+        
+    D('expr(seq)', '({0})', weight=3)
+    D('expr(seq)', '[{0}]', weight=2)
+    D('expr(seq)', '<{0}>', weight=1)
+    
+    if include_unicode:
+        D('expr(seq)', '⟨{0}⟩', weight=0.5)   # mathematical angle
+        D('expr(seq)', '⟦{0}⟧', weight=0.5)   # white square (semantic brackets)
+        D('expr(seq)', '⟪{0}⟫', weight=0.5)   # double angle
+    
+    if allow_atoms:
+        D('expr', '()', weight=1)
+        D('expr', '[]', weight=0.75)
+        D('expr', '<>', weight=0.5)
+        
+        if include_unicode:
+            D('expr', '⟨⟩', weight=0.2)
+            D('expr', '⟦⟧', weight=0.2)
+            D('expr', '⟪⟫', weight=0.2)
+    
+    return D
 
 
 def regex_grammar():
